@@ -1,10 +1,8 @@
 import argparse
 
 from reward import calculate_annual_interest, calculate_validator_half_life
+from reward import EPOCHS_PER_DAY
 
-
-# 1/14.0 (blocks/second) * 86400 (seconds/day) * 1/50 (epochs/block)
-epochs_per_day = 86400 / (14.0 * 50)
 
 
 def calculate_interest_factor(target_annual_interest, initial_deposits, penalty_factor=0.0):
@@ -12,8 +10,8 @@ def calculate_interest_factor(target_annual_interest, initial_deposits, penalty_
     while True:
         percent_gain = calculate_annual_interest(initial_deposits, 1.0, interest_factor, penalty_factor)
 
-        # return if within +/- 3%
-        if percent_gain > (target_annual_interest * 0.97) and percent_gain < (target_annual_interest * 1.03):
+        # return if within +/- 0.1%
+        if percent_gain > (target_annual_interest * 0.999) and percent_gain < (target_annual_interest * 1.001):
             return interest_factor
 
         # change estimate for next round
@@ -25,19 +23,19 @@ def calculate_interest_factor(target_annual_interest, initial_deposits, penalty_
 
 def calculate_penalty_factor(target_day_half_life, initial_deposits,
                              interest_factor, fraction_offline):
-    penalty_factor = 0.005
+    penalty_factor = 0.0005
     while True:
         epoch_half_life = calculate_validator_half_life(initial_deposits, fraction_offline,
                                                         interest_factor, penalty_factor)
 
-        day_half_life = epoch_half_life / epochs_per_day
-        print("penalty:\t%.6f" % penalty_factor)
-        print("epochs:\t\t%s" % epoch_half_life)
-        print("days:\t\t%.2f" % day_half_life)
-        print("")
+        day_half_life = epoch_half_life / EPOCHS_PER_DAY
+        # print("penalty:\t%.6f" % penalty_factor)
+        # print("epochs:\t\t%s" % epoch_half_life)
+        # print("days:\t\t%.2f" % day_half_life)
+        # print("")
 
-        # return if within +/- 5%
-        if day_half_life > (target_day_half_life * 0.98) and day_half_life < (target_day_half_life * 1.02):
+        # return if within +/- .1%
+        if day_half_life > (target_day_half_life * 0.999) and day_half_life < (target_day_half_life * 1.001):
             return penalty_factor
 
         # change estimate for next round
@@ -59,7 +57,7 @@ def main():
     )
     parser.add_argument(
         '--offline', type=float, default=0.5,
-        help='the percentage of validators that go offline for penalty calculation'
+        help='the fraction of validators that go offline for penalty calculation'
     )
     parser.add_argument(
         '--total-deposits', type=float, default=10000000,
@@ -75,11 +73,12 @@ def main():
 
     target_interest = args.target_interest
     target_half_life = args.target_half_life
+    offline = args.offline
 
     interest_factor = penalty_factor = 0
     for i in range(10):
         interest_factor = calculate_interest_factor(target_interest, initial_deposits, penalty_factor)
-        penalty_factor = calculate_penalty_factor(target_half_life, initial_deposits, interest_factor, args.offline)
+        penalty_factor = calculate_penalty_factor(target_half_life, initial_deposits, interest_factor, offline)
 
         print("interest_factor:\t%f" % interest_factor)
         print("penalty_factor:\t\t%.10f" % penalty_factor)
@@ -96,7 +95,7 @@ def main():
 
     percent_gain = calculate_annual_interest(initial_deposits, 1.0, interest_factor, penalty_factor)
     half_life_epochs = calculate_validator_half_life(initial_deposits, args.offline, interest_factor, penalty_factor)
-    half_life_days = half_life_epochs / epochs_per_day
+    half_life_days = half_life_epochs / EPOCHS_PER_DAY
 
 
     print("")
